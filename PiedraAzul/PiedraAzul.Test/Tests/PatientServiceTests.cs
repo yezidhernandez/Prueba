@@ -1,114 +1,41 @@
-//using Microsoft.EntityFrameworkCore;
-//using PiedraAzul.ApplicationServices.Services;
-//using PiedraAzul.Data;
-//using PiedraAzul.Data.Models;
+using Moq;
+using PiedraAzul.Application.Features.Patients.Commands.CreateGuestPatient;
+using PiedraAzul.Domain.Entities.Profiles.Patients;
+using PiedraAzul.Domain.Repositories;
 
-//namespace PiedraAzul.Test.Tests
-//{
-//    public class PatientServiceTests : IClassFixture<PostgresFixture>
-//    {
-//        private readonly PostgresFixture _fixture;
-//        private readonly PatientService _sut;
+namespace PiedraAzul.Test.Tests;
 
-//        public PatientServiceTests(PostgresFixture fixture)
-//        {
-//            _fixture = fixture;
-//            _sut = new PatientService(fixture.DbContextFactory);
-//        }
+public class PatientServiceTests
+{
+    [Fact]
+    public async Task CreateGuestPatientHandler_AddsGuestAndReturnsGeneratedId()
+    {
+        var repo = new Mock<IPatientGuestRepository>();
+        var unitOfWork = new Mock<IUnitOfWork>();
 
-//        private async Task<PatientGuest> SeedGuestAsync(string name, string id)
-//        {
-//            await using var ctx = _fixture.DbContextFactory.CreateDbContext();
+        unitOfWork
+            .Setup(u => u.ExecuteAsync(It.IsAny<Func<CancellationToken, Task<string>>>(), It.IsAny<CancellationToken>()))
+            .Returns((Func<CancellationToken, Task<string>> action, CancellationToken ct) => action(ct));
 
-//            var guest = new PatientGuest
-//            {
-//                PatientIdentification = id,
-//                PatientName = name,
-//                PatientPhone = "3001234567",
-//                PatientExtraInfo = "Test Info"
-//            };
+        GuestPatient? capturedGuest = null;
 
-//            ctx.PatientGuests.Add(guest);
-//            await ctx.SaveChangesAsync();
+        repo
+            .Setup(r => r.AddAsync(It.IsAny<GuestPatient>(), It.IsAny<CancellationToken>()))
+            .Callback<GuestPatient, CancellationToken>((guest, _) => capturedGuest = guest)
+            .Returns(Task.CompletedTask);
 
-//            return guest;
-//        }
+        var sut = new CreateGuestPatientHandler(repo.Object, unitOfWork.Object);
 
-//        private async Task<ApplicationUser> SeedPatientUserAsync(string name, string email)
-//        {
-//            await using var ctx = _fixture.DbContextFactory.CreateDbContext();
+        var result = await sut.Handle(
+            new CreateGuestPatientCommand("100200300", "Paciente Invitado", "3001234567", "Observaciones"),
+            CancellationToken.None);
 
-//            var user = new ApplicationUser
-//            {
-//                Id = Guid.NewGuid().ToString(),
-//                UserName = $"{name.ToLower().Replace(" ", "")}@test.com",
-//                Name = name,
-//                Email = email,
-//                PhoneNumber = "555-0000"
-//            };
+        Assert.False(string.IsNullOrWhiteSpace(result));
+        Assert.NotNull(capturedGuest);
+        Assert.Equal("Paciente Invitado", capturedGuest!.Name);
+        Assert.Equal("3001234567", capturedGuest.Phone);
+        Assert.Equal("Observaciones", capturedGuest.ExtraInfo);
 
-//            var profile = new PatientProfile
-//            {
-//                UserId = user.Id,
-//                User = user
-//            };
-
-//            ctx.Users.Add(user);
-//            ctx.PatientProfiles.Add(profile);
-//            await ctx.SaveChangesAsync();
-
-//            return user;
-//        }
-
-//        [Fact]
-//        public async Task CreatePatientGuest_Success()
-//        {
-//            var guest = new PatientGuest
-//            {
-//                PatientIdentification = "87654321",
-//                PatientName = "New Guest",
-//                PatientPhone = "3100000000",
-//                PatientExtraInfo = "New Info"
-//            };
-
-//            var result = await _sut.CreatePatientGuestAsync(guest);
-
-//            Assert.NotNull(result);
-//            Assert.Equal("87654321", result.PatientIdentification);
-//        }
-
-//        [Fact]
-//        public async Task GetPatientGuestById_ReturnsGuest()
-//        {
-//            var seeded = await SeedGuestAsync("Guest To Find", "111222333");
-
-//            var result = await _sut.GetPatientGuestById(seeded.PatientIdentification);
-
-//            Assert.NotNull(result);
-//            Assert.Equal(seeded.PatientName, result!.PatientName);
-//        }
-
-//        [Fact]
-//        public async Task GetPatientGuestByQuery_ReturnsMatched()
-//        {
-//            var seeded = await SeedGuestAsync("Queryable Guest", "999888777");
-
-//            var result = await _sut.GetPatientGuestByQuery(seeded.PatientIdentification);
-
-//            Assert.NotNull(result);
-//            Assert.Contains(result!, g => g!.PatientIdentification == seeded.PatientIdentification);
-//        }
-
-//        [Fact]
-//        public async Task GetPatientProfileByQuery_ReturnsMatched()
-//        {
-//            var email = "patient@query.com";
-//            var user = await SeedPatientUserAsync("Patient User", email);
-
-//            var result = await _sut.GetPatientProfileByQueryAsync(email);
-
-//            Assert.NotNull(result);
-//            Assert.Contains(result!, p => p!.UserId == user.Id);
-//        }
-//    }
-//}
+        repo.Verify(r => r.AddAsync(It.IsAny<GuestPatient>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+}

@@ -1,73 +1,41 @@
-//using Microsoft.EntityFrameworkCore;
-//using PiedraAzul.ApplicationServices.Services;
-//using PiedraAzul.Data;
-//using PiedraAzul.Data.Models;
+using Moq;
+using PiedraAzul.Application.Common.Interfaces;
+using PiedraAzul.Application.Common.Models.User;
+using PiedraAzul.Application.Features.Doctors.Queries.GetDoctorsBySpecialty;
+using PiedraAzul.Domain.Entities.Profiles.Doctor;
+using PiedraAzul.Domain.Entities.Shared.Enums;
+using PiedraAzul.Domain.Repositories;
 
-//namespace PiedraAzul.Test.Tests
-//{
-//    public class DoctorServiceTests : IClassFixture<PostgresFixture>
-//    {
-//        private readonly PostgresFixture _fixture;
-//        private readonly DoctorService _sut;
+namespace PiedraAzul.Test.Tests;
 
-//        public DoctorServiceTests(PostgresFixture fixture)
-//        {
-//            _fixture = fixture;
-//            _sut = new DoctorService(fixture.DbContextFactory);
-//        }
+public class DoctorServiceTests
+{
+    [Fact]
+    public async Task GetDoctorsBySpecialty_ReturnsOnlyDoctorsWithMatchingIdentity()
+    {
+        var doctorRepo = new Mock<IDoctorRepository>();
+        var identityService = new Mock<IIdentityService>();
 
-//        private async Task<DoctorProfile> SeedDoctorAsync(string name, DoctorType specialty)
-//        {
-//            await using var ctx = _fixture.DbContextFactory.CreateDbContext();
+        var d1 = new Doctor("doc-1", DoctorType.NaturalMedicine, "LIC-01", "Notas 1");
+        var d2 = new Doctor("doc-2", DoctorType.NaturalMedicine, "LIC-02", "Notas 2");
 
-//            var user = new ApplicationUser
-//            {
-//                Id = Guid.NewGuid().ToString(),
-//                UserName = $"{name.ToLower().Replace(" ", "")}@test.com",
-//                Name = name
-//            };
+        doctorRepo
+            .Setup(r => r.GetBySpecialtyAsync(DoctorType.NaturalMedicine, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([d1, d2]);
 
-//            var doctor = new DoctorProfile
-//            {
-//                UserId = user.Id,
-//                Specialty = specialty
-//            };
+        identityService
+            .Setup(i => i.GetByIds(It.IsAny<List<string>>()))
+            .ReturnsAsync([
+                new UserDto { Id = "doc-1", Name = "Dra. Uno", AvatarUrl = "avatar-1" }
+            ]);
 
-//            ctx.Users.Add(user);
-//            ctx.DoctorProfiles.Add(doctor);
-//            await ctx.SaveChangesAsync();
+        var sut = new GetDoctorsBySpecialtyHandler(doctorRepo.Object, identityService.Object);
 
-//            return doctor;
-//        }
+        var result = await sut.Handle(new GetDoctorsBySpecialtyQuery(DoctorType.NaturalMedicine), CancellationToken.None);
 
-//        [Fact]
-//        public async Task GetDoctorByUserId_ReturnsDoctor()
-//        {
-//            var seeded = await SeedDoctorAsync("Dr. Test", DoctorType.NaturalMedicine);
-
-//            var result = await _sut.GetDoctorByUserIdAsync(seeded.UserId);
-
-//            Assert.NotNull(result);
-//            Assert.Equal(seeded.UserId, result!.UserId);
-//        }
-
-//        [Fact]
-//        public async Task GetDoctorByType_ReturnsMatchedDoctors()
-//        {
-//            var seeded = await SeedDoctorAsync("Dr. Specialist", DoctorType.Physiotherapy);
-
-//            var result = await _sut.GetDoctorByTypeAsync(DoctorType.Physiotherapy);
-
-//            Assert.NotEmpty(result);
-//            Assert.Contains(result, d => d.UserId == seeded.UserId);
-//        }
-
-//        [Fact]
-//        public async Task GetDoctorByType_NotFound_ReturnsEmpty()
-//        {
-//            var result = await _sut.GetDoctorByTypeAsync(DoctorType.Optometry);
-
-//            Assert.Empty(result);
-//        }
-//    }
-//}
+        var doctorDto = Assert.Single(result);
+        Assert.Equal("doc-1", doctorDto.Id);
+        Assert.Equal("Dra. Uno", doctorDto.Name);
+        Assert.Equal("LIC-01", doctorDto.LicenseNumber);
+    }
+}
