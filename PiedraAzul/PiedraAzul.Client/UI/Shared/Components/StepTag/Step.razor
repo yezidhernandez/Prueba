@@ -1,0 +1,36 @@
+﻿@typeparam TModel
+
+@if (Parent.CurrentStep == Index)
+{
+    <SlideComponent MaxSteps="@Parent.Steps.Count"
+                    CurrentStep="@(Index+1)"
+                    Title="@Title" />
+    @ChildContent
+}
+
+@code {
+
+    [CascadingParameter]
+    Stepper<TModel> Parent { get; set; }
+
+    [Parameter]
+    public string Title { get; set; }
+
+    [Parameter]
+    public string[] Fields { get; set; }
+
+    [Parameter]
+    public RenderFragment ChildContent { get; set; }
+
+    int Index;
+
+    protected override void OnInitialized()
+    {
+        Index = Parent.Register(new Stepper<TModel>.StepItem
+        {
+            Title = Title,
+            Fields = Fields?.ToList() ?? new()
+        });
+    }
+
+}
