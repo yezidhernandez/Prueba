@@ -165,8 +165,8 @@ public class DoctorServiceTests
         var result = await sut.Handle(new GetDoctorDaySlotsQuery("doc-1", date), CancellationToken.None);
 
         Assert.Equal(2, result.Count);
-        Assert.False(result.Single(x => x.SlotId == slot1.Id).IsAvailable);
-        Assert.True(result.Single(x => x.SlotId == slot2.Id).IsAvailable);
+        Assert.False(result.Single(x => x.Id == slot1.Id).IsAvailable);
+        Assert.True(result.Single(x => x.Id == slot2.Id).IsAvailable);
     }
 
     private static DateOnly NextDateFor(DayOfWeek day)
