@@ -17,7 +17,7 @@ public class UserServiceTests
         var identity = new Mock<IIdentityService>();
 
         doctorRepo.Setup(x => x.GetByIdAsync("doc-x", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Doctor("doc-x", DoctorType.Psychology, "LIC-X", "Perfil"));
+            .ReturnsAsync(new Doctor("doc-x", DoctorType.Chiropractic, "LIC-X", "Perfil"));
         identity.Setup(x => x.GetById("doc-x"))
             .ReturnsAsync(new UserDto("doc-x", "docx@test.com", "Doc X", "x.png"));
 
@@ -27,7 +27,7 @@ public class UserServiceTests
 
         Assert.NotNull(result);
         Assert.Equal("x.png", result!.AvatarUrl);
-        Assert.Equal(DoctorType.Psychology, result.Specialty);
+        Assert.Equal(DoctorType.Chiropractic, result.Specialty);
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class UserServiceTests
         var identity = new Mock<IIdentityService>();
 
         doctorRepo.Setup(x => x.GetByIdAsync("doc-10", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Doctor("doc-10", DoctorType.Psychiatry, "LIC-10", ""));
+            .ReturnsAsync(new Doctor("doc-10", DoctorType.Chiropractic, "LIC-10", ""));
         identity.Setup(x => x.GetById("doc-10")).ReturnsAsync((UserDto?)null);
 
         var sut = new GetDoctorByUserIdHandler(doctorRepo.Object, identity.Object);
